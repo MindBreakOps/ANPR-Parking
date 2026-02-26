@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Smart Parking OS | Liquid Glass</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+	<style>
+		/* CSS Variables for Light/Dark Mode */
+		:root {
+			--bg-gradient: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+			--glass-bg: rgba(255, 255, 255, 0.2);
+			--glass-border: rgba(255, 255, 255, 0.4);
+			--text-color: #1e293b;
+			--input-bg: rgba(255, 255, 255, 0.5);
+			--btn-bg: rgba(255, 255, 255, 0.4);
+			--btn-hover: rgba(255, 255, 255, 0.6);
+		}
+
+		body.dark-mode {
+			--bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+			--glass-bg: rgba(0, 0, 0, 0.3);
+			--glass-border: rgba(255, 255, 255, 0.1);
+			--text-color: #f8fafc;
+			--input-bg: rgba(0, 0, 0, 0.4);
+			--btn-bg: rgba(255, 255, 255, 0.1);
+			--btn-hover: rgba(255, 255, 255, 0.2);
+		}
+
+		body { margin: 0; font-family: 'Inter', sans-serif; background: var(--bg-gradient); color: var(--text-color); min-height: 100vh; background-attachment: fixed; transition: 0.3s; }
+		
+		/* Glassmorphism Classes */
+		.glass { background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); padding: 20px; color: var(--text-color); }
+		.hidden { display: none !important; }
+		
+		input, select { width: 100%; padding: 14px; margin: 10px 0; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--input-bg); color: var(--text-color); box-sizing: border-box; font-size: 1rem; outline: none; }
+		input::placeholder { color: var(--text-color); opacity: 0.7; }
+		button { background: var(--btn-bg); color: var(--text-color); border: 1px solid var(--glass-border); padding: 14px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; backdrop-filter: blur(5px); transition: 0.2s; width: 100%; font-size: 1rem; }
+		button:hover { background: var(--btn-hover); transform: translateY(-2px); }
+
+		/* Layout */
+		#login-view { height: 100vh; display: flex; align-items: center; justify-content: center; }
+		.login-box { width: 350px; text-align: center; }
+		
+		nav { display: flex; justify-content: space-around; padding: 15px; border-bottom: 1px solid var(--glass-border); background: var(--glass-bg); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 100; }
+		nav div { cursor: pointer; padding: 10px 20px; border-radius: 10px; font-weight: 600; transition: 0.2s; }
+		nav div.active { background: rgba(255,255,255,0.3); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+
+		.panel { padding: 2rem; max-width: 800px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+		
+		/* Log Cards with Glow */
+		.log-card { margin-bottom: 1.5rem; transition: 0.3s; display: flex; flex-direction: column; gap: 10px; }
+		.status-in { box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); border: 1px solid rgba(16, 185, 129, 0.5); }
+		.status-out { box-shadow: 0 0 15px rgba(239, 68, 68, 0.5); border: 1px solid rgba(239, 68, 68, 0.3); opacity: 0.8; }
+		.card-header { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; }
+		.card-body { display: flex; justify-content: space-between; font-size: 0.9rem; }
+		
+		/* Invoice Modal */
+		#invoice-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 999; backdrop-filter: blur(5px); }
+		.modal-content { width: 90%; max-width: 350px; text-align: center; background: white; color: black; /* Keep invoice white for image export */ border-radius: 12px; overflow: hidden; }
+		.invoice-canvas-area { padding: 30px; background: white; }
+		.invoice-logo { width: 80px; margin-bottom: 10px; }
+	</style>
+</head>
+<body>
+
+	<div id="login-view">
+		<div class="glass login-box">
+			<h2>Smart Parking</h2>
+			<input type="text" id="username" placeholder="Email / Username">
+			<input type="password" id="password" placeholder="Password">
+			<button onclick="login()" style="margin-top: 15px;">SIGN IN</button>
+			<p id="login-msg" style="color: #ef4444; font-size: 0.9rem; font-weight: bold;"></p>
+		</div>
+	</div>
+
+	<div id="app-view" class="hidden">
+		<nav>
+			<div class="nav-btn active" onclick="switchTab('dashboard')">Gate</div>
+			<div class="nav-btn" onclick="switchTab('logs'); fetchLogs();">Logs</div>
+			<div class="nav-btn" onclick="switchTab('account')">Account</div>
+			<div class="nav-btn" onclick="switchTab('settings')">Settings</div>
+		</nav>
+
+		<div id="dashboard" class="panel">
+			<div class="glass">
+				<h2>New Entry Gate</h2>
+				<input type="text" id="plate-input" placeholder="ENTER PLATE NUMBER (e.g. ABC-123)">
+				<button onclick="processEntry()">REGISTER ENTRY</button>
+				<p id="entry-msg" style="text-align: center; margin-top: 15px; font-weight: bold;"></p>
+			</div>
+		</div>
+
+		<div id="logs" class="panel hidden">
+			<input type="text" id="searchPlate" class="glass" placeholder="🔍 Search Plate Number..." onkeyup="filterLogs()" style="margin-bottom: 20px;">
+			<div id="logs-container"></div>
+		</div>
+
+		<div id="account" class="panel hidden">
+			<div class="glass" id="account-info"></div>
+			<button onclick="logout()" style="margin-top: 20px; background: rgba(239, 68, 68, 0.8); color: white;">Logout</button>
+		</div>
+
+		<div id="settings" class="panel hidden">
+			<div class="glass">
+				<h2>Settings</h2>
+				<label><strong>Theme:</strong></label>
+				<select id="theme-selector" onchange="toggleTheme()">
+					<option value="light">Light Glass</option>
+					<option value="dark">Dark Glass</option>
+				</select>
+				<label><strong>Company Stamp:</strong></label>
+				<input type="text" id="company-stamp" placeholder="Mind-Break Co." value="Mind-Break Co.">
+			</div>
+		</div>
+	</div>
+
+	<div id="invoice-modal" class="hidden">
+		<div class="modal-content">
+			<div id="invoice-canvas-area" class="invoice-canvas-area">
+				<img src="anpr.png" class="invoice-logo" id="inv-logo" onerror="this.style.display='none'">
+				<h3 id="inv-stamp-display" style="margin: 0 0 15px 0; color: #555;">Mind-Break Co.</h3>
+				<h2 style="border-bottom: 2px dashed #ccc; padding-bottom: 10px; margin-bottom: 15px;">PARKING TICKET</h2>
+				<div style="text-align: left; font-size: 0.95rem; line-height: 1.8; color: #333;">
+					<b>Plate:</b> <span id="inv-plate"></span><br>
+					<b>Entry:</b> <span id="inv-entry"></span><br>
+					<b>Exit:</b> <span id="inv-exit"></span><br>
+					<b>Duration:</b> <span id="inv-duration"></span><br>
+				</div>
+				<h2 style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 15px; color: #0f172a;">Total: <span id="inv-fee"></span></h2>
+				<p style="font-size: 0.8rem; color: #888;">Thank you for your visit</p>
+			</div>
+			<div style="padding: 15px; background: #f8fafc; display: flex; gap: 10px;">
+				<button onclick="exportImage()" style="background: #10b981; color: white;">💾 Save Image</button>
+				<button onclick="closeInvoice()" style="background: #94a3b8; color: white;">Close</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const API_URL = "https://script.google.com/macros/s/AKfycbwZC7gHUWdIrHp47L_muA2eYFkX2OR3TG1kKh9s9My1HE_MwvdYe1FKEwDulYx1TEyW9w/exec"; 
+		let currentUser = null;
+
+		async function apiCall(payload) {
+			const res = await fetch(API_URL, {
+				method: 'POST',
+				body: JSON.stringify(payload)
+			});
+			return await res.json();
+		}
+
+		async function login() {
+			const u = document.getElementById('username').value;
+			const p = document.getElementById('password').value;
+			document.getElementById('login-msg').innerText = "Authenticating...";
+			
+			const res = await apiCall({ action: "login", username: u, password: p });
+			if (res.success) {
+				currentUser = res.user;
+				document.getElementById('login-view').classList.add('hidden');
+				document.getElementById('app-view').classList.remove('hidden');
+				
+				document.getElementById('account-info').innerHTML = `
+					<h2>Profile</h2>
+					<p><strong>Name:</strong> ${currentUser.name}</p>
+					<p><strong>Role:</strong> ${currentUser.role}</p>
+					<p><strong>Title:</strong> ${currentUser.title}</p>
+				`;
+			} else {
+				document.getElementById('login-msg').innerText = res.message;
+			}
+		}
+
+		function logout() { location.reload(); }
+
+		function switchTab(tabId) {
+			document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+			document.getElementById(tabId).classList.remove('hidden');
+			document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+			event.target.classList.add('active');
+		}
+
+		// --- DASHBOARD (ENTRY) ---
+		async function processEntry() {
+			const plate = document.getElementById('plate-input').value.toUpperCase();
+			const msgBox = document.getElementById('entry-msg');
+			if(!plate) return;
+			
+			msgBox.innerText = "Processing...";
+			msgBox.style.color = "inherit";
+
+			const res = await apiCall({ action: "processEntry", plate: plate });
+			if(res.success) {
+				msgBox.innerText = `✅ ${plate} entered at ${res.time}`;
+				msgBox.style.color = "#10b981";
+				document.getElementById('plate-input').value = "";
+			} else {
+				msgBox.innerText = `❌ Error: ${res.message}`;
+				msgBox.style.color = "#ef4444";
+			}
+		}
+
+		// --- LOGS (LIST, CHECKOUT, FULL INFO) ---
+		async function fetchLogs() {
+			document.getElementById('logs-container').innerHTML = "<p>Loading records...</p>";
+			const res = await apiCall({ action: "getLogs" });
+			if(res.success) renderLogs(res.data);
+		}
+
+		function renderLogs(logs) {
+			const container = document.getElementById('logs-container');
+			container.innerHTML = "";
+			logs.forEach(log => {
+				const isIN = log.status === "IN";
+				const card = document.createElement('div');
+				card.className = `glass log-card ${isIN ? 'status-in' : 'status-out'}`;
+				// Data attribute for the search function
+				card.setAttribute('data-plate', log.plate.toUpperCase()); 
+				
+				card.innerHTML = `
+					<div class="card-header">
+						<span>🚘 ${log.plate}</span>
+						<span style="color: ${isIN ? '#10b981' : '#ef4444'};">${log.status}</span>
+					</div>
+					<div class="card-body">
+						<div>
+							<b>Entry:</b> ${log.entry}<br>
+							<b>Exit:</b> ${isIN ? '--' : log.exit}
+						</div>
+						<div style="text-align: right;">
+							<b>Duration:</b> ${isIN ? 'Active' : log.duration}<br>
+							<b>Fee:</b> ${isIN ? '--' : log.fee}
+						</div>
+					</div>
+					<div style="margin-top: 15px; display: flex; gap: 10px;">
+						${isIN ? `<button onclick="checkout('${log.plate}')" style="background: rgba(16, 185, 129, 0.8); color: white;">Check Out & Bill</button>` : ''}
+						<button onclick='showInvoice(${JSON.stringify(log)})' style="background: rgba(59, 130, 246, 0.8); color: white;">${isIN ? 'View Ticket' : 'Export Invoice'}</button>
+					</div>
+				`;
+				container.appendChild(card);
+			});
+		}
+
+		// --- SEARCH FIX ---
+		function filterLogs() {
+			const input = document.getElementById('searchPlate').value.toUpperCase();
+			const cards = document.querySelectorAll('.log-card');
+			cards.forEach(card => {
+				const plate = card.getAttribute('data-plate');
+				if (plate.includes(input)) {
+					card.style.display = "flex";
+				} else {
+					card.style.display = "none";
+				}
+			});
+		}
+
+		// --- CHECKOUT API ---
+		async function checkout(plate) {
+			if(!confirm(`Are you sure you want to check out ${plate}?`)) return;
+			const res = await apiCall({ action: "checkout", plate: plate });
+			if(res.success) {
+				showInvoice(res); // Show the new calculated data directly
+				fetchLogs(); // Refresh the list in the background
+			} else {
+				alert(res.message);
+			}
+		}
+
+		// --- INVOICE MODAL & EXPORT (IMAGE FIX) ---
+		function showInvoice(data) {
+			document.getElementById('inv-stamp-display').innerText = document.getElementById('company-stamp').value;
+			document.getElementById('inv-plate').innerText = data.plate;
+			document.getElementById('inv-entry').innerText = data.entry || "Unknown";
+			document.getElementById('inv-exit').innerText = data.exit || "Not Checked Out";
+			document.getElementById('inv-duration').innerText = data.duration || "Active";
+			document.getElementById('inv-fee').innerText = data.fee || "Pending";
+			
+			document.getElementById('invoice-modal').classList.remove('hidden');
+		}
+
+		function closeInvoice() {
+			document.getElementById('invoice-modal').classList.add('hidden');
+		}
+
+		// Captures the white div and saves as PNG
+		async function exportImage() {
+			const element = document.getElementById('invoice-canvas-area');
+			const canvas = await html2canvas(element, { scale: 2 }); // Scale 2 for high-res
+			const dataURL = canvas.toDataURL('image/png');
+			
+			const link = document.createElement('a');
+			link.download = `Invoice_${document.getElementById('inv-plate').innerText}.png`;
+			link.href = dataURL;
+			link.click();
+		}
+
+		// --- DARK MODE FIX ---
+		function toggleTheme() {
+			const theme = document.getElementById('theme-selector').value;
+			if (theme === 'dark') {
+				document.body.classList.add('dark-mode');
+			} else {
+				document.body.classList.remove('dark-mode');
+			}
+		}
+	</script>
+</body>
+</html>
