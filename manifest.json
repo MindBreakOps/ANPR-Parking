@@ -1,0 +1,21 @@
+{
+  "name": "MindBreak ANPR",
+  "short_name": "Parking OS",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#f8f9fa",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/MindBreakOps/ANPR-Parking/main/anpr.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/MindBreakOps/ANPR-Parking/main/anpr.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
